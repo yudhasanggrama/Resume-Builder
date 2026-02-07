@@ -115,7 +115,7 @@ export class ResumeController {
     deleteById = async (req: Request, res: Response) => {
     const resumeId = mustParamId(req, "id"); // helper UUID/string aman
     await svc.deleteById(req.accessToken!, req.userId!, resumeId);
-    res.status(204).send(); // No Content
+    res.status(204).json({message: "Delete resume success"});
   };
 
 
