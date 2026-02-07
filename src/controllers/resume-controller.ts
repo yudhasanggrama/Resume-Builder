@@ -112,6 +112,13 @@ export class ResumeController {
     res.json(row);
   };
 
+    deleteById = async (req: Request, res: Response) => {
+    const resumeId = mustParamId(req, "id"); // helper UUID/string aman
+    await svc.deleteById(req.accessToken!, req.userId!, resumeId);
+    res.status(204).send(); // No Content
+  };
+
+
   duplicateById = async (req: Request, res: Response) => {
     const resumeId = mustParamId(req,"id")
     const row = await svc.duplicateById(req.accessToken!, req.userId!, resumeId);

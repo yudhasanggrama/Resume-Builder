@@ -143,6 +143,23 @@ export class ResumeService {
     return data as ResumeRow;
   }
 
+  async deleteById(
+    accessToken: string,
+    userId: string,
+    resumeId: string
+  ): Promise<void> {
+    const sb = supabaseRls(accessToken);
+
+    const { error } = await sb
+      .from("resumes")
+      .delete()
+      .eq("id", resumeId)
+      .eq("user_id", userId); // defense in depth
+
+    if (error) throw new Error(error.message);
+  }
+
+
   // OPTIONAL: duplicate
   async duplicateById(
     accessToken: string,
