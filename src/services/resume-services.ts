@@ -11,6 +11,8 @@ export type ResumeRow = {
 };
 
 const DEFAULT_DATA = {
+  theme: { primaryColor: "#111827", fontFamily: "Inter" },
+  sectionOrder: ["profile", "experience", "education", "skills", "extras"],
   profile: {
     fullName: "",
     headline: "",
