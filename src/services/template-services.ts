@@ -7,6 +7,8 @@ export type TemplateMeta = {
     supportedFonts: string[];
     supportedColors?: string[];
     previewUrl?: string;
+    fontSize?: string;
+    pagePadding?: string;
 };
 
 export const TEMPLATES: TemplateMeta[] = [
@@ -16,13 +18,17 @@ export const TEMPLATES: TemplateMeta[] = [
         description: "Simple, ATS-friendly layout",
         supportedFonts: ["Inter", "Roboto", "Arial"],
         supportedColors: ["#111827", "#1D4ED8", "#0F766E", "#B91C1C"],
+        fontSize : "11px",
+        pagePadding: "10mm",
     },
     {
         id: "ats-2",
-        name: "Modern Minimal",
-        description: "Modern layout with subtle styling",
+        name: "ATS Modern",
+        description: "ATS Modern layout with subtle styling",
         supportedFonts: ["Inter", "Poppins", "Roboto"],
         supportedColors: ["#111827", "#6D28D9", "#0EA5E9", "#16A34A"],
+        fontSize : "11px",
+        pagePadding: "10mm",
     },
 ];
 

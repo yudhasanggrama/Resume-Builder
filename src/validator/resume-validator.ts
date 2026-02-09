@@ -20,6 +20,8 @@ export const themeSchema = z.object({
     .trim()
     .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Invalid hex color"),
   fontFamily: trimmed(50),
+  fontSize: trimmed(20),
+  pagePadding: trimmed(20),
 });
 
 // ===== Section order (ADD) =====
