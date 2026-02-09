@@ -1,0 +1,687 @@
+openapi: 3.0.3
+info:
+  title: CVku Backend API
+  version: 1.0.0
+  description: |
+    API backend untuk CVku (Resume Builder) berdasarkan source code (app.ts + routes).
+    Prefix API: /api/v1 (kecuali /health).
+
+servers:
+  - url: http://localhost:5000
+    description: Local dev (sesuaikan PORT env kamu)
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Resumes
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ===== Common
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      additionalProperties: true
+
+    ZodValidationError:
+      type: object
+      properties:
+        errors:
+          type: object
+          additionalProperties: true
+
+    # ===== Auth
+    LogoutResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: Logged out (refresh token revoked)
+
+    # ===== Resume Row (sesuai supabase select "*")
+    ResumeRow:
+      type: object
+      required:
+        - id
+        - user_id
+        - title
+        - template_id
+        - data
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Resume UUID
+        user_id:
+          type: string
+          description: User UUID (owner)
+        title:
+          type: string
+          example: My Resume
+        template_id:
+          type: string
+          example: ats-1
+        data:
+          type: object
+          description: JSON resume data (profile, experience, education, skills, extras, dll)
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # ===== Requests (sesuai resume-validator.ts)
+    PatchMetaRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 80
+        templateId:
+          type: string
+          maxLength: 40
+      additionalProperties: false
+
+    ProfileLink:
+      type: object
+      required: [url]
+      properties:
+        type:
+          type: string
+          enum:
+            - linkedin
+            - github
+            - portfolio
+            - website
+            - behance
+            - dribbble
+            - medium
+            - kaggle
+            - stackoverflow
+            - twitter
+            - instagram
+            - youtube
+            - other
+          default: other
+        label:
+          type: string
+          maxLength: 30
+        url:
+          type: string
+          format: uri
+      additionalProperties: false
+
+    Profile:
+      type: object
+      required: [fullName]
+      properties:
+        fullName:
+          type: string
+          maxLength: 80
+        headline:
+          type: string
+          maxLength: 120
+        avatarUrl:
+          type: string
+          format: uri
+          description: "URL avatar (tidak boleh data: base64)"
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          maxLength: 30
+        location:
+          type: string
+          maxLength: 80
+        summary:
+          type: string
+          maxLength: 1200
+        links:
+          type: array
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/ProfileLink"
+      additionalProperties: true
+
+    PatchProfileRequest:
+      type: object
+      required: [profile]
+      properties:
+        profile:
+          $ref: "#/components/schemas/Profile"
+      additionalProperties: false
+
+    ExperienceItem:
+      type: object
+      required: [company, role, employment_type, start]
+      properties:
+        id:
+          type: string
+        company:
+          type: string
+          maxLength: 80
+        role:
+          type: string
+          maxLength: 80
+        employment_type:
+          type: string
+        start:
+          type: string
+          description: YYYY-MM-DD (di validator di-coerce dari date)
+          example: "2023-01-01"
+        end:
+          oneOf:
+            - type: string
+              example: "2024-01-01"
+            - type: string
+              example: ""
+        location:
+          type: string
+          maxLength: 80
+        highlights:
+          type: array
+          maxItems: 12
+          items:
+            type: string
+      additionalProperties: true
+
+    PatchExperienceRequest:
+      type: object
+      required: [experience]
+      properties:
+        experience:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/ExperienceItem"
+      additionalProperties: false
+
+    EducationItem:
+      type: object
+      required: [college, start]
+      properties:
+        id:
+          type: string
+        college:
+          type: string
+          maxLength: 120
+        degree:
+          type: string
+          maxLength: 80
+        field:
+          type: string
+          maxLength: 80
+        start:
+          type: string
+          description: YYYY-MM-DD (di validator di-coerce dari date)
+          example: "2020-08-01"
+        end:
+          oneOf:
+            - type: string
+              example: "2024-06-01"
+            - type: string
+              example: ""
+        gpa:
+          type: string
+          maxLength: 20
+      additionalProperties: true
+
+    PatchEducationRequest:
+      type: object
+      required: [education]
+      properties:
+        education:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/EducationItem"
+      additionalProperties: false
+
+    PatchSkillsRequest:
+      type: object
+      required: [skills]
+      properties:
+        skills:
+          type: array
+          maxItems: 100
+          items:
+            type: string
+      additionalProperties: false
+
+    Extras:
+      type: object
+      description: |
+        Schema extras mengikuti resume-validator.ts (certifications, languages, projects) + passthrough (boleh field lain).
+      properties:
+        certifications:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [name, date]
+            properties:
+              name: { type: string, maxLength: 120 }
+              issuer: { type: string, maxLength: 80 }
+              date:
+                type: string
+                example: "2024-01-01"
+              url:
+                type: string
+                format: uri
+            additionalProperties: false
+        languages:
+          type: array
+          maxItems: 30
+          items:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string, maxLength: 60 }
+              level: { type: string, maxLength: 30 }
+            additionalProperties: false
+        projects:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string, maxLength: 120 }
+              description: { type: string, maxLength: 800 }
+              url:
+                type: string
+                format: uri
+            additionalProperties: false
+      additionalProperties: true
+
+    PatchExtrasRequest:
+      type: object
+      required: [extras]
+      properties:
+        extras:
+          $ref: "#/components/schemas/Extras"
+      additionalProperties: false
+
+paths:
+  # ===== Health (tanpa prefix /api/v1 sesuai app.ts)
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  # ===== Auth (prefix /api/v1 sesuai app.ts)
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (revoke refresh token in Supabase)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ===== Resumes (prefix /api/v1)
+  /api/v1/resumes:
+    get:
+      tags: [Resumes]
+      summary: List resumes (sorted by updated_at desc)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResumeRow"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags: [Resumes]
+      summary: Create new resume (meta optional)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchMetaRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeRow"
+        "400":
+          description: Validation error (Zod)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/resumes/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        description: Resume UUID
+
+    get:
+      tags: [Resumes]
+      summary: Get resume by id
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeRow"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found (implementation dependent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags: [Resumes]
+      summary: Delete resume by id
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Deleted (No Content)
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found (implementation dependent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/resumes/{id}/meta:
+    patch:
+      tags: [Resumes]
+      summary: Patch resume meta (title, templateId)
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchMetaRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeRow"
+        "400":
+          description: Validation error (Zod)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/resumes/{id}/sections/profile:
+    patch:
+      tags: [Resumes]
+      summary: Patch profile section
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchProfileRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeRow"
+        "400":
+          description: Validation error (Zod)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+
+  /api/v1/resumes/{id}/sections/experience:
+    patch:
+      tags: [Resumes]
+      summary: Patch experience section
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchExperienceRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeRow"
+        "400":
+          description: Validation error (Zod)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+
+  /api/v1/resumes/{id}/sections/education:
+    patch:
+      tags: [Resumes]
+      summary: Patch education section
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchEducationRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeRow"
+        "400":
+          description: Validation error (Zod)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+
+  /api/v1/resumes/{id}/sections/skills:
+    patch:
+      tags: [Resumes]
+      summary: Patch skills section
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchSkillsRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeRow"
+        "400":
+          description: Validation error (Zod)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+
+  /api/v1/resumes/{id}/sections/extras:
+    patch:
+      tags: [Resumes]
+      summary: Patch extras section
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchExtrasRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeRow"
+        "400":
+          description: Validation error (Zod)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+
+  /api/v1/resumes/{id}/duplicate:
+    post:
+      tags: [Resumes]
+      summary: Duplicate resume by id
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Created (new duplicated resume)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeRow"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found (implementation dependent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
