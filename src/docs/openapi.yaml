@@ -116,9 +116,6 @@ paths:
         "400":
           $ref: "#/components/responses/SupabaseErrorResponse"
 
-  # =========================
-  # RESUME (EXPRESS /api/v1)
-  # =========================
   /api/v1/resumes:
     get:
       tags: [Resume]
