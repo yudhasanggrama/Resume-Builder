@@ -18,6 +18,7 @@ import { signUpNewUser, signInWithEmail } from "../../actions/auth-action";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/authContext";
 
+// test
 export function AuthDialog() {
   const [change, setChange] = useState<boolean>(false);
   const router = useRouter();
